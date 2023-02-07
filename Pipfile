@@ -1,0 +1,21 @@
+[[source]]
+url = "https://pypi.org/simple"
+verify_ssl = true
+name = "pypi"
+
+[packages]
+urllib3 = ">=1.26.5"
+boto3 = "*"
+s3fs = "== 2022.8.2"
+civis = "*"
+fastparquet = "*"
+numpy = "*"
+paramiko = "*"
+pandas = "==1.1.4"
+psycopg2 = "*"
+typing_extensions = "*"
+
+[dev-packages]
+pytest = "*"
+flake8 = "*"
+pytest-mock = "*"
