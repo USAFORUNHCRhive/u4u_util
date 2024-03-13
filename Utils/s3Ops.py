@@ -1,11 +1,10 @@
-import fastparquet as fp
-from fastparquet import write
+"""Transfers data to and from s3"""
+
 from typing import List
 import tempfile
 import json
 import s3fs
 import boto3
-from datetime import datetime
 import io
 import re
 import pandas as pd
@@ -29,9 +28,7 @@ class S3Connection:
     def saveDataFrametoS3(
         self, data_frame, directory_to_save, file_name, delimiter="|", header=False
     ):
-        """
-
-        This method will take a DataFrame and save it to the according directory with a given file
+        """This method will take a DataFrame and save it to the according directory with a given file
         name.
 
         @param data_frame: The Data Frame that we hope to save
@@ -203,56 +200,6 @@ class S3Connection:
             object_encoding="utf8"
             # object_encoding={'batch_date_transaction_amount_grouped': 'json'}
         )
-
-    def loadPartitionToDF(self, directoryPath, numberOfSubDirectory) -> pd.DataFrame:
-        subdirectoryPath = "*/" * numberOfSubDirectory
-        bucket = self.aws_bucket
-        fss3 = s3fs.S3FileSystem(
-            anon=False, key=self.aws_access_key, secret=self.aws_secret_key
-        )
-
-        root_dir_path = f"{bucket}/{directoryPath}"
-        s3_path = f"{root_dir_path}/{subdirectoryPath}*.gzip"
-        all_paths_from_s3 = fss3.glob(path=s3_path)
-        # print(s3_path)
-        # print(all_paths_from_s3)
-        myopen = fss3.open
-        fp_obj = fp.ParquetFile(all_paths_from_s3, open_with=myopen, root=root_dir_path)
-        return fp_obj.to_pandas(index=False)
-
-    def loadPartitionToDFWithFilter(
-        self, directoryPath, numberOfSubDirectory, date_to_filter, fitering_rule
-    ) -> pd.DataFrame:
-        subdirectoryPath = "*/" * numberOfSubDirectory
-        bucket = self.aws_bucket
-        fss3 = s3fs.S3FileSystem(
-            anon=False, key=self.aws_access_key, secret=self.aws_secret_key
-        )
-
-        root_dir_path = f"{bucket}/{directoryPath}"
-        s3_path = f"{root_dir_path}/{subdirectoryPath}*.gzip"
-        all_paths_from_s3 = fss3.glob(path=s3_path)
-        # print(s3_path)
-        # print(all_paths_from_s3)
-
-        if fitering_rule == "less_than":
-            all_paths_from_s3 = [
-                date_
-                for date_ in all_paths_from_s3
-                if datetime.strptime("-".join(date_.split("/")[3:6]), "%Y-%m-%d")
-                < datetime.strptime(date_to_filter, "%Y-%m-%d")
-            ]
-        else:
-            all_paths_from_s3 = [
-                date_
-                for date_ in all_paths_from_s3
-                if datetime.strptime("-".join(date_.split("/")[3:6]), "%Y-%m-%d")
-                >= datetime.strptime(date_to_filter, "%Y-%m-%d")
-            ]
-
-        myopen = fss3.open
-        fp_obj = fp.ParquetFile(all_paths_from_s3, open_with=myopen, root=root_dir_path)
-        return fp_obj.to_pandas(index=False)
 
     def loadTxtFile(self, directory, fileName) -> str:
         s3 = self.client

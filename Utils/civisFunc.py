@@ -1,3 +1,5 @@
+"""Utility functions and wrapper functions for the Civis API"""
+
 import requests
 import json
 from datetime import datetime
@@ -7,7 +9,7 @@ from civis.base import EmptyResultError, CivisJobFailure
 import os
 
 
-class CivisApi:
+class api:
     def __init__(self, civisToken):
         self.civisToken = civisToken
         self.urlPath = "https://api.civisanalytics.com/"
@@ -42,7 +44,7 @@ class CivisApi:
         return json.loads(response.content)
 
 
-class CivisUtil:
+class util:
     def __init__(self):
         pass
 
@@ -142,7 +144,6 @@ class CivisUtil:
 
     def sendEmail(self, subject, body, emailAddressList, patch_id=126048778):
         """
-
         Function to send an email
 
             @param subject: The title of the email

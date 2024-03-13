@@ -1,3 +1,5 @@
+"""Uses paramiko to access and operate in remote SFTP servers"""
+
 import io
 from datetime import datetime
 import paramiko as pk
@@ -82,14 +84,11 @@ class AccessFtp:
         return client.open_sftp()
 
     def getFile(self, sftp_client, pathToRemote, fileName):
-        """
-
-        This method will get a file in the FTP and save it locally. The timeout is how long the connection will be open
+        """This method will get a file in the FTP and save it locally. The timeout is how long the connection will be open
         for.
 
         @param fileName: The name of the file in the ftp
         @return: A saved file in the local directory retrieved from the ftp.
-
         """
 
         return sftp_client.get(f"{pathToRemote}/{fileName}", fileName)
@@ -99,7 +98,6 @@ class AccessFtp:
 
     def getHiveOutputZipFile(self, filePrefix, dirPath, date):
         """
-
         This method will get a find a zip-file in the ftp based on the prefix and date given c
 
         @param filePrefix: The Prefix of the file in the ftp
