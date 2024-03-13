@@ -3,7 +3,6 @@
 from typing import List
 import tempfile
 import json
-import s3fs
 import boto3
 import io
 import re
@@ -183,23 +182,6 @@ class S3Connection:
         s3 = self.client
         obj = s3.get_object(Bucket=self.aws_bucket, Key="%s/%s" % (directory, fileName))
         return pd.read_csv(obj["Body"], skiprows=skipRows)
-
-    def saveDFToPartition(self, data, directoryPath):
-        fss3 = s3fs.S3FileSystem(
-            anon=False, key=self.aws_access_key, secret=self.aws_secret_key
-        )
-        myopen = fss3.open
-        # fileName = f'{self.aws_bucket}/{directoryPath}/ds={dataloaded}/filename.parq.gzip'
-        fileName = f"{self.aws_bucket}/{directoryPath}/data.parq.gzip"
-
-        write(
-            fileName,
-            data,
-            compression="GZIP",
-            open_with=myopen,
-            object_encoding="utf8"
-            # object_encoding={'batch_date_transaction_amount_grouped': 'json'}
-        )
 
     def loadTxtFile(self, directory, fileName) -> str:
         s3 = self.client
