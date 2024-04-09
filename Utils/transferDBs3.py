@@ -254,12 +254,13 @@ class transferToS3:
         self.aws_secret_key = aws_secret_key
         self.redShiftConn = redShiftConn
 
-    def unloadToS3(self, s3_path: str, table: str, parallel: bool = False):
+    def unloadToS3(self, s3_path: str, table: str, parallel_off: bool = False):
         """Use unload to archive to s3 given path
 
         Args:
             s3_path (str): path where table should be archived
             table (str): name of table with schema to be archived
+            parallel_off (bool): switch for unloading jobs works in parallel. default is false i.e. it will unload in parrallel by default
         """
         assert (
             s3_path is not None
@@ -268,7 +269,7 @@ class transferToS3:
             to '{s3_path}' 
             credentials 'aws_access_key_id={self.aws_access_key};aws_secret_access_key={self.aws_secret_key}'
             gzip;"""
-        if parallel:
+        if parallel_off:
             q = q[:-1] + "\nparallel off;"
         self.redShiftConn.runDDL(q)
 
