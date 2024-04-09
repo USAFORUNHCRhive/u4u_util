@@ -2,8 +2,7 @@
 
 import psycopg2
 import pandas as pd
-import boto3
-from s3Ops import S3Connection
+from .s3Ops import S3Connection
 from psycopg2.errors import DependentObjectsStillExist
 from collections.abc import Iterable
 import requests
@@ -11,12 +10,12 @@ import numpy as np
 
 
 class RedShiftConnection:
-    def __init__(self, database, userName, password, host):
+    def __init__(self: str, database: str, userName, password: str, host: str):
         self.database = database
         self.userName = userName
         self.password = password
         self.host = host
-    
+
     def __connect(self):
         return psycopg2.connect(
             database=self.database,
@@ -26,7 +25,7 @@ class RedShiftConnection:
             port="5432",
         )
 
-    def runDDL(self, sqlScript):
+    def runDDL(self, sqlScript: str):
         conn = self.__connect()
         cur = conn.cursor()
         print(sqlScript[:250] + "...")
@@ -36,7 +35,7 @@ class RedShiftConnection:
         cur.close()
         conn.close()
 
-    def tryDDL(self, sqlScript):
+    def tryDDL(self, sqlScript: str):
         conn = self.__connect()
         try:
             cur = conn.cursor()
@@ -49,7 +48,7 @@ class RedShiftConnection:
         except Exception as e:
             print(e)
 
-    def getTableSchema(self, tableName, schemaName="ds_salesforce"):
+    def getTableSchema(self, tableName: str, schemaName: str = "ds_salesforce"):
         """
         Returns schema of given table as data frame.
             Parameters:
@@ -66,28 +65,6 @@ class RedShiftConnection:
 
         return self.runQuery(ds_sf_col_sql)
 
-    def runQuery(self, query) -> pd.DataFrame:
-        conn = self.__connect()
-        print(query[:250])
-        return pd.read_sql(query, conn)
-
-
-class moveTableToSchema:
-    def __init__(
-        self, redshift_database, redshift_username, redshift_password, redshift_host
-    ):
-        self.redshift_database = redshift_database
-        self.redshift_username = redshift_username
-        self.redshift_password = redshift_password
-        self.redshift_host = redshift_host
-
-        self.redShiftConn = RedShiftConnection(
-            database=self.redshift_database,
-            userName=self.redshift_username,
-            password=self.redshift_password,
-            host=self.redshift_host,
-        )
-
     def getTablesBySchema(self, schemaName: str):
         """
         Gets list of tables given a schema name.
@@ -101,13 +78,25 @@ class moveTableToSchema:
         WHERE table_schema = '{schemaName}'
         ORDER BY table_name"""
 
-        schemaTables = self.redShiftConn.runQuery(sqlQuery)
+        schemaTables = self.runQuery(sqlQuery)
 
         tablesList = schemaTables["table_name"].tolist()
 
         return tablesList
 
-    def truncTransferFromStaging(self, newSchema, table, stagingSchema="staging"):
+    def runQuery(self, query: str) -> pd.DataFrame:
+        conn = self.__connect()
+        print(query[:250])
+        return pd.read_sql(query, conn)
+
+
+class moveTableToSchema:
+    def __init__(self, r_conn: RedShiftConnection):
+        self.redShiftConn = r_conn
+
+    def truncTransferFromStaging(
+        self, newSchema: str, table: str, stagingSchema: str = "staging"
+    ):
         """
         Truncates table and transfers from staging schema (default staging) to a new schema using a sql transaction.
         Used to replace entire table contents without needing to drop the table so it keeps it's structure and dependencies.
@@ -125,7 +114,14 @@ class moveTableToSchema:
         """
         self.redShiftConn.runDDL(sql)
 
-    def upsert_records(self, schemaName="ds_salesforce", staging_schemaName="staging", tableName="", id='id', delete=True):
+    def upsert_records(
+        self,
+        schemaName: str = "ds_salesforce",
+        staging_schemaName: str = "staging",
+        tableName: str = "",
+        id: str = "id",
+        delete: bool = True,
+    ):
         """
         Upserts (update + insert) records in a given table using a sql transaction.
             Parameters:
@@ -134,9 +130,9 @@ class moveTableToSchema:
                 tableName (str): name of the table getting updated
         """
         if delete:
-            delete_sql = f' where {staging_schemaName}.{tableName}.isdeleted=0;'
+            delete_sql = f" where {staging_schemaName}.{tableName}.isdeleted=0;"
         else:
-            delete_sql = ';'
+            delete_sql = ";"
         upsert_sql = f"""
             begin transaction;
                 delete from {schemaName}.{tableName}
@@ -177,10 +173,12 @@ class moveTableToSchema:
         ORDER BY 1,2;
         """
         df = self.redShiftConn.runQuery(find_dependent_tbls_query)
-        df['schema.table'] = df['dependent_schema'] + '.' + df['dependent_view']
-        return df['schema.table'].unique()
+        df["schema.table"] = df["dependent_schema"] + "." + df["dependent_view"]
+        return df["schema.table"].unique()
 
-    def dropReplaceTables(self, oldSchema, newSchema, tableName, cascade=False):
+    def dropReplaceTables(
+        self, oldSchema: str, newSchema: str, tableName: str, cascade: bool = False
+    ):
         """
         Drop and replaces a given table in a given schema using a sql transaction.
         Will recreate views if cascade is set to True.
@@ -192,6 +190,7 @@ class moveTableToSchema:
                 cascade (bool): do drop cascade?
 
         """
+
         def recreateViews(views_to_recreate: Iterable):
             """
             Recreates views using a stored procedure. Sends a slack alert if the procedure is not found.
@@ -200,19 +199,22 @@ class moveTableToSchema:
             """
             for view in views_to_recreate:
                 try:
-                    print(f'Recreating {view}')
-                    schema, v = view.split('.')
-                    self.redShiftConn.runDDL(f'CALL {schema}.create_{v}();')
+                    print(f"Recreating {view}")
+                    schema, v = view.split(".")
+                    self.redShiftConn.runDDL(f"CALL {schema}.create_{v}();")
                 except Exception as e:
                     print(e)
-                    headers = {'Content-type': 'application/json'}
+                    headers = {"Content-type": "application/json"}
                     response = requests.post(
-                        'https://hooks.slack.com/services/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',
+                        "https://hooks.slack.com/services/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",
                         headers=headers,
-                        json={'text': f'{e}'}
+                        json={"text": f"{e}"},
                     )
                     if response.status_code != 200:
-                        print(f'[ERROR] Could not send Slack Message. Response Status Code is {response.status_code}.')
+                        print(
+                            f"[ERROR] Could not send Slack Message. Response Status Code is {response.status_code}."
+                        )
+
         dropReplaceSQL = f"""begin transaction;
             DROP TABLE IF EXISTS {newSchema}.{tableName};
             CREATE TABLE IF NOT EXISTS {newSchema}.{tableName} (like {oldSchema}.{tableName});
@@ -223,7 +225,9 @@ class moveTableToSchema:
         try:
             self.redShiftConn.runDDL(dropReplaceSQL)
         except DependentObjectsStillExist as e:
-            print(f"WARNING: Dependent Objects still exist. Cascade is set to {cascade}.\n")
+            print(
+                f"WARNING: Dependent Objects still exist. Cascade is set to {cascade}.\n"
+            )
             print(e)
             if cascade:
                 views_to_recreate = self.findDependentObj(newSchema, tableName)
@@ -231,50 +235,51 @@ class moveTableToSchema:
                     DROP TABLE IF EXISTS {newSchema}.{tableName} CASCADE;
                  {dropReplaceSQL[dropReplaceSQL.find('CREATE'):]}"""
                 self.redShiftConn.runDDL(dropCascadeSQL)
-                print(f"Will recreate {len(views_to_recreate)} views: {views_to_recreate}")
+                print(
+                    f"Will recreate {len(views_to_recreate)} views: {views_to_recreate}"
+                )
                 recreateViews(views_to_recreate)
 
 
-class SaveSchemaToS3:
+class transferToS3:
     def __init__(
         self,
-        aws_bucket,
-        aws_access_key,
-        aws_secret_key,
-        redshift_database,
-        redshift_username,
-        redshift_password,
-        redshift_host,
+        aws_bucket: str,
+        aws_access_key: str,
+        aws_secret_key: str,
+        redShiftConn: RedShiftConnection,
     ):
         self.aws_bucket = aws_bucket
         self.aws_access_key = aws_access_key
         self.aws_secret_key = aws_secret_key
-        self.session = boto3.Session(
-            aws_access_key_id=self.aws_access_key,
-            aws_secret_access_key=self.aws_secret_key,
-            region_name="us-east-1",
-        )
-        self.redshift_database = redshift_database
-        self.redshift_username = redshift_username
-        self.redshift_password = redshift_password
-        self.redshift_host = redshift_host
+        self.redShiftConn = redShiftConn
 
-        self.redShiftConn = RedShiftConnection(
-            database=self.redshift_database,
-            userName=self.redshift_username,
-            password=self.redshift_password,
-            host=self.redshift_host,
-        )
+    def unloadToS3(self, s3_path: str, table: str, parallel_off: bool = False):
+        """Use unload to archive to s3 given path
 
+        Args:
+            s3_path (str): path where table should be archived
+            table (str): name of table with schema to be archived
+            parallel_off (bool): switch for unloading jobs works in parallel. default is false i.e. it will unload in parrallel by default
+        """
+        assert (
+            s3_path is not None
+        ), "Cannot have empty s3 path... Don't know where to archive to"
+        q = f"""unload ('select * from {table}')
+            to '{s3_path}' 
+            credentials 'aws_access_key_id={self.aws_access_key};aws_secret_access_key={self.aws_secret_key}'
+            gzip;"""
+        if parallel_off:
+            q = q[:-1] + "\nparallel off;"
+        self.redShiftConn.runDDL(q)
 
     def saveSchemaTableToS3(self, dataFrame, schemaName, tableName):
         s3Conn = S3Connection(self.aws_bucket, self.aws_access_key, self.aws_secret_key)
-
         s3Conn.saveFiletoS3(dataFrame, "%s" % schemaName, tableName, True)
 
-    def saveMultipleSchemasToS3(self, schemaNameList):
+    def saveMultipleSchemasToS3(self, schemaNameList: list):
         for schemaName in schemaNameList:
-            tableNameList = self.getTablesBySchema(schemaName)
+            tableNameList = self.redShiftConn.getTablesBySchema(schemaName)
             for table in tableNameList:
                 getData = self.redShiftConn.runQuery(
                     "SELECT * FROM %s.%s" % (schemaName, table)
@@ -283,7 +288,7 @@ class SaveSchemaToS3:
                 print(f"{schemaName}.{table}")
                 self.saveSchemaTableToS3(getData, schemaName, table)
 
-    def saveBigTabletoS3(self, schemaName, table, numPartitions):
+    def saveBigTabletoS3(self, schemaName: str, table: str, numPartitions: str):
         getData = self.redShiftConn.runQuery(f"SELECT * FROM {schemaName}.{table}")
         partitonSize = getData.shape[0] // numPartitions
         print(
