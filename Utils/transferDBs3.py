@@ -3,7 +3,7 @@
 import psycopg2
 import pandas as pd
 import boto3
-from s3Ops import S3Connection
+from .s3Ops import S3Connection
 from psycopg2.errors import DependentObjectsStillExist
 from collections.abc import Iterable
 import requests
@@ -65,6 +65,25 @@ class RedShiftConnection:
         TABLE_NAME   = '{tableName.lower()}';"""
 
         return self.runQuery(ds_sf_col_sql)
+    
+    def getTablesBySchema(self, schemaName: str):
+        """
+        Gets list of tables given a schema name.
+            Parameters:
+                schemaName (str): schema to query for tables
+            Returns:
+                list of table names in the schema
+        """
+        sqlQuery = f"""SELECT DISTINCT table_schema,table_name
+        from information_schema.tables
+        WHERE table_schema = '{schemaName}'
+        ORDER BY table_name"""
+
+        schemaTables = self.runQuery(sqlQuery)
+
+        tablesList = schemaTables["table_name"].tolist()
+
+        return tablesList
 
     def runQuery(self, query) -> pd.DataFrame:
         conn = self.__connect()
@@ -87,25 +106,6 @@ class moveTableToSchema:
             password=self.redshift_password,
             host=self.redshift_host,
         )
-
-    def getTablesBySchema(self, schemaName: str):
-        """
-        Gets list of tables given a schema name.
-            Parameters:
-                schemaName (str): schema to query for tables
-            Returns:
-                list of table names in the schema
-        """
-        sqlQuery = f"""SELECT DISTINCT table_schema,table_name
-        from information_schema.tables
-        WHERE table_schema = '{schemaName}'
-        ORDER BY table_name"""
-
-        schemaTables = self.redShiftConn.runQuery(sqlQuery)
-
-        tablesList = schemaTables["table_name"].tolist()
-
-        return tablesList
 
     def truncTransferFromStaging(self, newSchema, table, stagingSchema="staging"):
         """
@@ -235,16 +235,13 @@ class moveTableToSchema:
                 recreateViews(views_to_recreate)
 
 
-class SaveSchemaToS3:
+class transferToS3:
     def __init__(
         self,
-        aws_bucket,
-        aws_access_key,
-        aws_secret_key,
-        redshift_database,
-        redshift_username,
-        redshift_password,
-        redshift_host,
+        aws_bucket: str,
+        aws_access_key: str,
+        aws_secret_key: str,
+        redShiftConn: RedShiftConnection
     ):
         self.aws_bucket = aws_bucket
         self.aws_access_key = aws_access_key
@@ -254,19 +251,26 @@ class SaveSchemaToS3:
             aws_secret_access_key=self.aws_secret_key,
             region_name="us-east-1",
         )
-        self.redshift_database = redshift_database
-        self.redshift_username = redshift_username
-        self.redshift_password = redshift_password
-        self.redshift_host = redshift_host
 
-        self.redShiftConn = RedShiftConnection(
-            database=self.redshift_database,
-            userName=self.redshift_username,
-            password=self.redshift_password,
-            host=self.redshift_host,
-        )
+        self.redShiftConn = redShiftConn
 
 
+    def archiveToS3(self, s3_path: str, table: str, parallel: bool = False):
+        """Use unload to archive to s3 given path
+
+        Args:
+            s3_path (str): path where table should be archived
+            table (str): name of table with schema to be archived 
+        """
+        assert s3_path is not None, "Cannot have empty s3 path... Don't know where to archive to"
+        q = f"""unload ('select * from {table}')
+            to '{s3_path}' 
+            credentials 'aws_access_key_id={self.aws_access_key};aws_secret_access_key={self.aws_secret_key}'
+            gzip;"""
+        if parallel:
+            q = q[:-1] + "\nparallel off;"
+        self.redShiftConn.runDDL(q)
+        
     def saveSchemaTableToS3(self, dataFrame, schemaName, tableName):
         s3Conn = S3Connection(self.aws_bucket, self.aws_access_key, self.aws_secret_key)
 
@@ -274,7 +278,7 @@ class SaveSchemaToS3:
 
     def saveMultipleSchemasToS3(self, schemaNameList):
         for schemaName in schemaNameList:
-            tableNameList = self.getTablesBySchema(schemaName)
+            tableNameList = self.redShiftConn.getTablesBySchema(schemaName)
             for table in tableNameList:
                 getData = self.redShiftConn.runQuery(
                     "SELECT * FROM %s.%s" % (schemaName, table)
