@@ -74,6 +74,30 @@ class SlackMessaging:
     # ========================================
     # Message related methods
     # ========================================
+    def validate_slack_token(self):
+        try:
+            response = self.client.auth_test()
+            if response["ok"]:
+                logger.debug("Token is valid.")
+                return True
+        except SlackApiError as e:
+            logger.error(f"Error: Unable to validate Slack Token: {e.response['error']}")
+            # Send email notification:
+            ses_client = boto3.client("ses", region_name="us-east-1")
+            message = MIMEMultipart()
+            message["Subject"] = "Slack Error: API Token Invalid"
+            body = MIMEText(f"Slack Error: {e.response['error']}.")
+            message.attach(body)
+            response = ses_client.send_raw_email(
+                Source="hive@u4u-email.com",
+                Destinations=["hive@unrefugees.org"],
+                RawMessage={"Data": message.as_string()},
+            )
+            response = ses_client.send_raw_email()
+            logger.info(response)
+            return False
+
+
     def message_post(self, text, channel: str = SLACK_CHANNEL, blocks: List[Dict[str, str]] = None) -> None:
         """
         Sends a text to Slack workspace given channel and optional blocks param.
@@ -81,16 +105,17 @@ class SlackMessaging:
         :param channel: Channel to send message to
         :param blocks: See SlackAPI documentation for more details.
         """
-        try:
-            response = self.client.chat_postMessage(
-                channel=channel,
-                text=text,
-                blocks=blocks
-            )
-            logger.info(f"Sent message to Slack: {text}")
-        except SlackApiError as e:
-            assert e.response["error"]
-            logger.error(f"Error posting message to Slack: {text}, response: {e.response['error']}")
+        if self.validate_slack_token() is True:
+            try:
+                response = self.client.chat_postMessage(
+                    channel=channel,
+                    text=text,
+                    blocks=blocks
+                )
+                logger.info(f"Sent message to Slack: {text}")
+            except SlackApiError as e:
+                assert e.response["error"]
+                logger.error(f"Error posting message to Slack: {text}, response: {e.response['error']}")
 
     # ========================================
     # File related methods
@@ -107,15 +132,16 @@ class SlackMessaging:
         :param initial_comments: Additional comments for context.
         :param channel: Channel to send file to.
         """
-        try:
-            response = self.client.files_upload_v2(
-                channel=channel,
-                file=file,
-                title=title,
-                initial_comment=initial_comments
-            )
-            logger.info(f"Sent file to Slack: {title} in {channel}")
-        except SlackApiError as e:
-            assert e.response["error"]
-            logger.error(f"Error sending {title} to Slack:, response: {e.response['error']}")
+        if self.validate_slack_token() is True:
+            try:
+                response = self.client.files_upload_v2(
+                    channel=channel,
+                    file=file,
+                    title=title,
+                    initial_comment=initial_comments
+                )
+                logger.info(f"Sent file to Slack: {title} in {channel}")
+            except SlackApiError as e:
+                assert e.response["error"]
+                logger.error(f"Error sending {title} to Slack:, response: {e.response['error']}")
 
