@@ -1,5 +1,5 @@
 """This file sends alerts via email or slack"""
-
+import os
 import boto3
 from email.mime.application import MIMEApplication
 from email.mime.multipart import MIMEMultipart
@@ -8,9 +8,10 @@ from email.mime.text import MIMEText
 
 def create_email(subject, body, email_list, filename=None, attachment_dataframe=None):
     """
-    This method is using ses to send an email. We use a domain created by AWS Route 53; which was verified usingn ses.
+    This method is using ses (AWS simple email service) to send an email.
+    We use a domain created by AWS Route 53; which was verified using ses.
     Once the domain is verified, this method can send emails to any domains. Any email can be attributed to the
-    verification domain if its created by domain53.
+    verification domain if it is created by domain53.
 
     :param subject: Email Subject
     :param body: Email body
@@ -53,6 +54,3 @@ def create_email(subject, body, email_list, filename=None, attachment_dataframe=
     )
 
     print(response)
-
-
-# TODO add slack funtionality
