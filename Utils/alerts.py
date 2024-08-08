@@ -1,9 +1,17 @@
 """This file sends alerts via email or slack"""
 import os
+from typing import List, Dict
+
 import boto3
 from email.mime.application import MIMEApplication
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
+
+from slack_sdk.web import WebClient
+from slack_sdk.errors import SlackApiError
+from Utils.logging import logging
+
+logger = logging.setup_logging()
 
 
 def create_email(subject, body, email_list, filename=None, attachment_dataframe=None):
@@ -53,4 +61,61 @@ def create_email(subject, body, email_list, filename=None, attachment_dataframe=
         RawMessage={"Data": message.as_string()},
     )
 
-    print(response)
+    logger.info(response)
+
+
+class SlackMessaging:
+    SLACK_TOKEN = os.getenv('SLACK_APP_TOKEN')
+    SLACK_CHANNEL = os.getenv('SLACK_CHANNEL')
+
+    def __init__(self):
+        self.client = WebClient(token=SlackMessaging.SLACK_TOKEN)
+
+    # ========================================
+    # Message related methods
+    # ========================================
+    def message_post(self, text, channel: str = SLACK_CHANNEL, blocks: List[Dict[str, str]] = None) -> None:
+        """
+        Sends a text to Slack workspace given channel and optional blocks param.
+        :param text: Message to send
+        :param channel: Channel to send message to
+        :param blocks: See SlackAPI documentation for more details.
+        """
+        try:
+            response = self.client.chat_postMessage(
+                channel=channel,
+                text=text,
+                blocks=blocks
+            )
+            logger.info(f"Sent message to Slack: {text}")
+        except SlackApiError as e:
+            assert e.response["error"]
+            logger.error(f"Error posting message to Slack: {text}, response: {e.response['error']}")
+
+    # ========================================
+    # File related methods
+    # ========================================
+    def file_post(self,
+                  title: str = None,
+                  file: str = None,
+                  initial_comments: str = None,
+                  channel: str = SLACK_CHANNEL) -> None:
+        """
+        Uploads and posts file to specified Slack channel.
+        :param title: Title to post file with.
+        :param file: File name of file to upload.
+        :param initial_comments: Additional comments for context.
+        :param channel: Channel to send file to.
+        """
+        try:
+            response = self.client.files_upload_v2(
+                channel=channel,
+                file=file,
+                title=title,
+                initial_comment=initial_comments
+            )
+            logger.info(f"Sent file to Slack: {title} in {channel}")
+        except SlackApiError as e:
+            assert e.response["error"]
+            logger.error(f"Error sending {title} to Slack:, response: {e.response['error']}")
+
