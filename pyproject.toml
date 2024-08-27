@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "u4u_util"
-version = "0.0.1"
+version = "0.0.2"
 dependencies = [
   "boto3",
   "civis<=1.16.0",
