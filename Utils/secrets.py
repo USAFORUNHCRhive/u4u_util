@@ -5,6 +5,13 @@ import os
 
 
 TEAM_PREFIXES = {"HIVE", "BST"}
+PROJECT_IDS = {
+    "DEV": "amazing-city-422521-t1",
+    "ANA": "ana",
+    "BILL": "bill",
+    "STG": "stg",
+    "PROD": "prod",
+}
 
 
 class Env(Enum):
@@ -18,6 +25,7 @@ class Env(Enum):
 
 class SecretManager():
     local_envs = {Env.DEV, Env.ANALYTICS}
+    project_ids = {env: PROJECT_IDS[env.value] for env in Env}
 
     def __init__(self, env: str = None):
         if env is None:
@@ -84,6 +92,16 @@ class SecretManager():
             return self._get_from_env(key_normalized, strict)
         else:
             return self._get_from_secret_manager(key_normalized, strict)
+
+    def get_project_id(self, env: str = None) -> str:
+        """
+        Get the project_id for an environment
+
+        @param env: optional, name of an environment, case insensitive
+        @return: project_id
+        """
+        env = self.env if env is None else Env[env.upper()]
+        return self.project_ids[env]
 
 
 def _make_secret_manager_client():

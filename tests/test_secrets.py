@@ -2,7 +2,7 @@
 
 import os
 import pytest
-from Utils.secrets import Env, SecretManager
+from Utils.secrets import PROJECT_IDS, Env, SecretManager
 
 
 class TestSecretManager:
@@ -110,3 +110,23 @@ class TestSecretManager:
         # TODO: test malformed keys
 
         del os.environ[good_key.upper()]
+
+    def test_get_project_id(self):
+        """ test correct retrieval of project IDs """
+        sm_local = SecretManager("dev")
+        sm_prod = SecretManager("prod")
+
+        assert sm_local.get_project_id() == PROJECT_IDS["DEV"]
+        assert sm_prod.get_project_id() == PROJECT_IDS["PROD"]
+
+        for env_str, pid in [
+            ("dev", PROJECT_IDS["DEV"]),
+            ("DEV", PROJECT_IDS["DEV"]),
+            ("analytics", PROJECT_IDS["ANA"]),
+            ("Analytics", PROJECT_IDS["ANA"]),
+            ("billing", PROJECT_IDS["BILL"]),
+            ("staging", PROJECT_IDS["STG"]),
+            ("prod", PROJECT_IDS["PROD"]),
+        ]:
+            assert sm_local.get_project_id(env_str) == pid
+            assert sm_prod.get_project_id(env_str) == pid
