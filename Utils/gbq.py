@@ -81,10 +81,10 @@ class GBQConnection:
 
         return tablesList
 
-    def runQuery(self, query: str) -> pd.DataFrame:
+    def runQuery(self, query: str, **kwargs) -> pd.DataFrame:
         conn = self.__connect()
         logging.debug(query[:250])
-        return pd.read_sql(query, conn)
+        return pd.read_sql(query, conn, **kwargs)
 
 
 def pandas_gbq(env: str = None) -> ModuleType:
