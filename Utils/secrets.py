@@ -4,34 +4,76 @@ from enum import Enum
 import os
 
 
+# short identifiers, also used as key prefixes in Secret Manager
+ENV_DEV_BST = "DEVB"
+ENV_DEV_HIVE = "DEVH"
+ENV_ANALYTICS = "ANA"
+ENV_STAGING = "STG"
+ENV_PROD = "PROD"
+
 TEAM_PREFIXES = {"HIVE", "BST"}
+ENV_MAP = {  # normalization of allowed env specifiers to enum, e.g. dev-bst --> DEV_BST
+    "DEVB": "DEV_BST",
+    "DEV_B": "DEV_BST",
+    "DEVBST": "DEV_BST",
+    "DEV_BST": "DEV_BST",
+    "BST": "DEV_BST",
+    "DEVH": "DEV_HIVE",
+    "DEV_H": "DEV_HIVE",
+    "DEVHIVE": "DEV_HIVE",
+    "DEV_HIVE": "DEV_HIVE",
+    "HIVE": "DEV_HIVE",
+    "ANA": "ANALYTICS",
+    "ANALYTICS": "ANALYTICS",
+    "STG": "STAGING",
+    "STAGING": "STAGING",
+    "PROD": "PROD",
+    "PRODUCTION": "PROD",
+}
 PROJECT_IDS = {
-    "DEV": "amazing-city-422521-t1",
-    "ANA": "ana",
-    "BILL": "bill",
-    "STG": "stg",
-    "PROD": "prod",
+    ENV_DEV_BST: "u4u-ds-dev-00",
+    ENV_DEV_HIVE: "u4u-ds-dev-01",
+    ENV_ANALYTICS: "u4u-ds-prod-00",
+    ENV_STAGING: "u4u-ds-stg-00",
+    ENV_PROD: "u4u-ds-prod-00",
 }
 
 
 class Env(Enum):
     """ values are the key prefixes used in Secret Manager """
-    DEV = "DEV"
-    ANALYTICS = "ANA"
-    BILLING = "BILL"
-    STAGING = "STG"
-    PROD = "PROD"
+    DEV_BST = ENV_DEV_BST
+    DEV_HIVE = ENV_DEV_HIVE
+    ANALYTICS = ENV_ANALYTICS
+    STAGING = ENV_STAGING
+    PROD = ENV_PROD
 
 
 class SecretManager():
-    local_envs = {Env.DEV, Env.ANALYTICS}
+    # read from local environment, not Secret Manager
+    local_envs = {Env.DEV_BST, Env.DEV_HIVE, Env.ANALYTICS}
+
     project_ids = {env: PROJECT_IDS[env.value] for env in Env}
 
     def __init__(self, env: str = None):
         if env is None:
-            env = os.environ.get("ENV", "dev")
-        self.env = Env[env.upper()]
+            if "ENV" not in os.environ:
+                raise KeyError("`ENV` must be specified")
+            else:
+                env = os.environ["ENV"]
+        self.env = self._get_env(env)
         self.is_local_env = self.env in self.local_envs
+
+    def _get_env(self, env: str) -> Env:
+        """
+        translate environment id string to Env object
+
+        @param env: string identifier for an environment
+        @return: Env object
+        """
+        key = env.replace("-", "_").upper()
+        if key not in ENV_MAP:
+            raise ValueError(f"'{env}' is not a valid ENV identifier")
+        return Env[ENV_MAP[key]]
 
     def _make_full_key(self, key: str) -> str:
         """
@@ -100,7 +142,7 @@ class SecretManager():
         @param env: optional, name of an environment, case insensitive
         @return: project_id
         """
-        env = self.env if env is None else Env[env.upper()]
+        env = self.env if env is None else self._get_env(env)
         return self.project_ids[env]
 
 
