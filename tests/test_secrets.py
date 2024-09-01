@@ -2,49 +2,74 @@
 
 import os
 import pytest
-from Utils.secrets import PROJECT_IDS, Env, SecretManager
+from Utils.secrets import (
+    ENV_DEV_BST,
+    ENV_DEV_HIVE,
+    ENV_ANALYTICS,
+    ENV_STAGING,
+    ENV_PROD,
+    PROJECT_IDS,
+    Env,
+    SecretManager,
+)
 
 
 class TestSecretManager:
     def test_init(self):
-        """ ensure it reads environments properly and errors on others """
+        """ check expected values for all environments """
         env_init = os.environ.get("ENV")
         if "ENV" in os.environ:
             del os.environ["ENV"]
 
-        # test reading each env, case insensitivity
-        for key, env, is_local_env in [
-            (None, Env.DEV, True),
-            ("dev", Env.DEV, True),
-            ("DEV", Env.DEV, True),
-            ("analytics", Env.ANALYTICS, True),
-            ("Analytics", Env.ANALYTICS, True),
-            ("billing", Env.BILLING, False),
-            ("staging", Env.STAGING, False),
-            ("prod", Env.PROD, False),
-        ]:
-            sm = SecretManager(key)
-            assert sm.env == env
-            assert sm.is_local_env == is_local_env
+        # test requirement to specify ENV
+        with pytest.raises(KeyError):
+            sm = SecretManager()
 
-        # test reading env var when env not supplied
-        os.environ["ENV"] = "dev"
+        # test reading ENV from env var
+        os.environ["ENV"] = "devb"
         sm = SecretManager()
-        assert sm.env is Env.DEV
+        assert sm.env == Env.DEV_BST
         assert sm.is_local_env
 
-        # test error with bad env
-        with pytest.raises(KeyError):
-            sm = SecretManager("other")
-
+        # reset env var
+        del os.environ["ENV"]
         if env_init is not None:
             os.environ["ENV"] = env_init
+
+        # test reading ENV from arg
+        sm = SecretManager("stg")
+        assert sm.env == Env.STAGING
+        assert not sm.is_local_env
+
+    def test_get_env(self):
+        """ ensure normalizes environments properly and errors on others """
+        # test reading each env, case insensitivity
+        sm = SecretManager("PROD")
+        for key, env in [
+            ("devb", Env.DEV_BST),
+            ("DEV_B", Env.DEV_BST),
+            ("DEV-Bst", Env.DEV_BST),
+            ("DEVh", Env.DEV_HIVE),
+            ("dev-H", Env.DEV_HIVE),
+            ("DEV_hIvE", Env.DEV_HIVE),
+            ("ana", Env.ANALYTICS),
+            ("Analytics", Env.ANALYTICS),
+            ("STG", Env.STAGING),
+            ("staging", Env.STAGING),
+            ("prod", Env.PROD),
+            ("PRODUCTION", Env.PROD),
+        ]:
+            assert sm._get_env(key) == env
+
+        # test error with bad env
+        with pytest.raises(ValueError):
+            sm._get_env("dev")
 
     def test_get_local(self):
         """ ensure it reads local environment vars correctly """
         good_key = "HIVE_TESTSECRET"
         bad_key = "HIVE_TESTSECRET_BAD"
-        sm = SecretManager("dev")
+        sm = SecretManager("devb")
 
         assert good_key not in os.environ
         assert bad_key not in os.environ
@@ -72,17 +97,17 @@ class TestSecretManager:
         pass
 
     def test_make_full_key(self):
-        sm_local = SecretManager("dev")
+        sm_local = SecretManager("devb")
         sm_prod = SecretManager("prod")
 
         test_key = "HIVE_SECRETKEY"
 
-        assert sm_local._make_full_key(test_key) == f"DEV_{test_key}"
-        assert sm_prod._make_full_key(test_key) == f"PROD_{test_key}"
+        assert sm_local._make_full_key(test_key) == f"{ENV_DEV_BST}_{test_key}"
+        assert sm_prod._make_full_key(test_key) == f"{ENV_PROD}_{test_key}"
 
     def test_get(self):
         """ test assertion on key format works """
-        sm_local = SecretManager("dev")
+        sm_local = SecretManager("devb")
         sm_prod = SecretManager("prod")
 
         good_key = "hive_secretkey"
@@ -113,20 +138,18 @@ class TestSecretManager:
 
     def test_get_project_id(self):
         """ test correct retrieval of project IDs """
-        sm_local = SecretManager("dev")
+        sm_local = SecretManager("devb")
         sm_prod = SecretManager("prod")
 
-        assert sm_local.get_project_id() == PROJECT_IDS["DEV"]
-        assert sm_prod.get_project_id() == PROJECT_IDS["PROD"]
+        assert sm_local.get_project_id() == PROJECT_IDS[ENV_DEV_BST]
+        assert sm_prod.get_project_id() == PROJECT_IDS[ENV_PROD]
 
         for env_str, pid in [
-            ("dev", PROJECT_IDS["DEV"]),
-            ("DEV", PROJECT_IDS["DEV"]),
-            ("analytics", PROJECT_IDS["ANA"]),
-            ("Analytics", PROJECT_IDS["ANA"]),
-            ("billing", PROJECT_IDS["BILL"]),
-            ("staging", PROJECT_IDS["STG"]),
-            ("prod", PROJECT_IDS["PROD"]),
+            ("devb", PROJECT_IDS[ENV_DEV_BST]),
+            ("devh", PROJECT_IDS[ENV_DEV_HIVE]),
+            ("Analytics", PROJECT_IDS[ENV_ANALYTICS]),
+            ("staging", PROJECT_IDS[ENV_STAGING]),
+            ("prod", PROJECT_IDS[ENV_PROD]),
         ]:
             assert sm_local.get_project_id(env_str) == pid
             assert sm_prod.get_project_id(env_str) == pid
