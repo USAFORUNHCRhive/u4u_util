@@ -15,11 +15,12 @@ SCOPES = ["https://www.googleapis.com/auth/cloud-platform"]
 
 
 class GBQConnection:
-    def __init__(self, env: str = None):
+    def __init__(self, env: str = None, project_id: str = None):
+        assert (env is None) or (project_id is None), "do not specify both `env` and `project_id`"
         # TODO: use another auth flow for non-local envs
         self.creds = pydata_google_auth.get_user_credentials(SCOPES, auth_local_webserver=True)
         self.secrets = SecretManager(env)
-        self.project_id = self.secrets.get_project_id()
+        self.project_id = project_id or self.secrets.project_id
 
     def __connect(self):
         client = bigquery.Client(credentials=self.creds, project=self.project_id)
@@ -87,11 +88,12 @@ class GBQConnection:
         return pd.read_sql(query, conn, **kwargs)
 
 
-def pandas_gbq(env: str = None) -> ModuleType:
+def pandas_gbq(env: str = None, project_id: str = None) -> ModuleType:
+    assert (env is None) or (project_id is None), "do not specify both `env` and `project_id`"
     creds = pydata_google_auth.get_user_credentials(SCOPES, auth_local_webserver=True)
     pdgbq.context.credentials = creds
 
     secrets = SecretManager(env)
     assert secrets.is_local_env, "pandas_gbq only intended for local use"
-    pdgbq.context.project = secrets.get_project_id()
+    pdgbq.context.project = project_id or secrets.project_id
     return pdgbq
