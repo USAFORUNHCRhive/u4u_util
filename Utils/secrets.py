@@ -62,6 +62,7 @@ class SecretManager():
                 env = os.environ["ENV"]
         self.env = self._get_env(env)
         self.is_local_env = self.env in self.local_envs
+        self.project_id = self._get_project_id(env)
 
     def _get_env(self, env: str) -> Env:
         """
@@ -135,7 +136,7 @@ class SecretManager():
         else:
             return self._get_from_secret_manager(key_normalized, strict)
 
-    def get_project_id(self, env: str = None) -> str:
+    def _get_project_id(self, env: str = None) -> str:
         """
         Get the project_id for an environment
 

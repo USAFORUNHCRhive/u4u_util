@@ -141,8 +141,8 @@ class TestSecretManager:
         sm_local = SecretManager("devb")
         sm_prod = SecretManager("prod")
 
-        assert sm_local.get_project_id() == PROJECT_IDS[ENV_DEV_BST]
-        assert sm_prod.get_project_id() == PROJECT_IDS[ENV_PROD]
+        assert sm_local._get_project_id() == PROJECT_IDS[ENV_DEV_BST]
+        assert sm_prod._get_project_id() == PROJECT_IDS[ENV_PROD]
 
         for env_str, pid in [
             ("devb", PROJECT_IDS[ENV_DEV_BST]),
@@ -151,5 +151,5 @@ class TestSecretManager:
             ("staging", PROJECT_IDS[ENV_STAGING]),
             ("prod", PROJECT_IDS[ENV_PROD]),
         ]:
-            assert sm_local.get_project_id(env_str) == pid
-            assert sm_prod.get_project_id(env_str) == pid
+            assert sm_local._get_project_id(env_str) == pid
+            assert sm_prod._get_project_id(env_str) == pid
