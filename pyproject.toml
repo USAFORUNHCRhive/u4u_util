@@ -1,0 +1,29 @@
+[build-system]
+requires = ["setuptools >= 61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "u4u_util"
+version = "0.0.2"
+dependencies = [
+  "boto3",
+  "civis<=1.16.0",
+  "joblib<=1.2",
+  "numpy",
+  "paramiko",
+  "pandas==2.0.2",
+  # "psycopg2",  fails if pg not installed
+  "typing_extensions",
+  "google-cloud-bigquery==3.25.0",
+  "pydata-google-auth==1.8.2",
+  "pandas-gbq==0.23.1",
+  "tqdm",
+]
+requires-python = ">=3.10"
+authors = [
+  {name = "Katie Harris", email = "katie@unrefugees.org"},
+  {name = "Andrew Cheng", email = "acheng@usaforunhcr.org"},
+  {name = "Alfred Lee", email = "alfred@unrefugees.org"},
+]
+description = "custom, private utilities for USA for UNHCR"
+readme = "README.md"
