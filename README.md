@@ -1,7 +1,9 @@
-# u4u_util
-U4U code utility library
+# U4U Code Utility Library 
 
-# Environments
+## Introduction
+Alerts is a python based package to simplify notifications between U4U's internal and external systems with AWS SES and `slack_sdk`.
+
+## Environments
 Users can specify the sets of credentials/secrets to use and the GCP project to connect to.
 Set the environment variable `ENV` and use `secrets` to fetch secrets by key.
 Environment identifiers are case insensitive.
@@ -31,3 +33,10 @@ Environment identifiers are case insensitive.
     * use secrets read from Google Secret Manager, including production service account GCP creds
     * keys must be prefixed with `PROD_`
     * [open question: where to fetch creds to connect to GSM? which creds?]
+
+##### alerts.py
+Define Environment variables `SLACK_APP_TOKEN` and `SLACK_CHANNEL`.
+Import the `SlackMessaging` class in the `alerts.py` file. Instantiate the `SlackWebClient` class. Check docstrings for detailed guidance.
+* Methods
+  * `message_post(text)` - Sends message to Slack Channel
+  * `file_post(title, filename, comments)` - Uploads a file to a channel as an attachment.
